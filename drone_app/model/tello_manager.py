@@ -240,8 +240,15 @@ class Tello():
                 return True
             return False
 
-        output = None
+        def pose_A(left_body_angle, right_body_angle):
+            output = False
+            if left_body_angle >= 90 and right_body_angle >= 90:
+                return True
+            return False
+
+        state =False
         cap = cv2.VideoCapture(0)
+
         with self.mp_pose.Pose(min_detection_confidence=0.5,
                                min_tracking_confidence=0.5
                                ) as pose:
@@ -299,7 +306,7 @@ class Tello():
                     left_body_angle = calculate_angle(left_hip, left_sholder, left_elbow)
                     right_body_angle = calculate_angle(right_hip, right_shoulder, right_elbow)
 
-                    cv2.rectangle(image, (0, 0), (255, 73), (245, 117, 16), -1)
+                    # cv2.rectangle(image, (0, 0), (255, 73), (245, 117, 16), -1)
 
                     draw_joint_text(image, left_arm_angle, left_elbow)
                     draw_joint_text(image, right_arm_angle, right_elbow)
@@ -307,10 +314,15 @@ class Tello():
                     draw_joint_text(image, right_body_angle, right_shoulder)
 
                     pose_t = pose_T(left_arm_angle, right_arm_angle, left_body_angle, right_body_angle)
+                    pose_a = pose_A(left_body_angle, right_body_angle)
 
-                    if pose_t:
+                    if pose_t and state is False:
+                        state =True
                         self.send_command('takeoff')
 
+                    if pose_a and state is not False:
+                        self.send_command('land')
+                        state =False
 
                 except:
                     pass
