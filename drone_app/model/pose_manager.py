@@ -2,6 +2,8 @@ import mediapipe as mp
 import cv2
 import numpy as np
 
+FRAME_X =640
+FRAME_Y =480
 
 class MediaPose():
     def __init__(self, mp_drawing=mp.solutions.drawing_utils,
@@ -26,7 +28,6 @@ class MediaPose():
 
             radians = np.arctan2(end[1] - middle[1], end[0] - middle[0]) - np.arctan2(first[1] - middle[1],
                                                                                       first[0] - middle[0])
-
             angle = np.abs(radians * 180 / np.pi)
             if angle > 180.0:
                 angle = 360 - angle
@@ -34,13 +35,19 @@ class MediaPose():
 
         def draw_text(image, angle, middle_joint):
             cv2.putText(image, str(angle),
-                        tuple(np.multiply(middle_joint, [640, 480]).astype(int)),
+                        tuple(np.multiply(middle_joint, [FRAME_X, FRAME_Y]).astype(int)),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA
                         )
 
         def pose_T(left_arm_angle, right_arm_angle,left_body_angle,right_body_angle):
             output =False
             if left_arm_angle>=150 and left_body_angle >=70 and right_arm_angle >=150 and right_body_angle:
+                return True
+            return False
+
+        def pose_A(left_body_angle,right_body_angle):
+            output =False
+            if left_body_angle>=90 and right_body_angle >=90:
                 return True
             return False
 
@@ -51,7 +58,7 @@ class MediaPose():
             while self.cap.isOpened():
                 ret, frame = self.cap.read()
 
-                frame = cv2.resize(frame, dsize=(640, 480))
+                frame = cv2.resize(frame, dsize=(FRAME_X, FRAME_Y))
 
                 image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 image.flags.writeable = False
@@ -109,11 +116,22 @@ class MediaPose():
                     draw_text(image, left_body_angle, left_sholder)
                     draw_text(image, right_body_angle, right_shoulder)
 
-                    flag =pose_T(left_arm_angle, right_arm_angle,left_body_angle,right_body_angle)
+                    pose_t =pose_T(left_arm_angle, right_arm_angle,left_body_angle,right_body_angle)
 
-                    cv2.putText(image, str(flag), (10, 50),
-                                cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2, cv2.LINE_AA
+                    pose_a =pose_A(left_body_angle,right_body_angle)
+
+
+                    cv2.putText(image, str('poseT:')+str(pose_t), (10, 50),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA
                                 )
+
+                    cv2.putText(image, str('poseT:') + str(pose_a), (10, 30),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA
+                                )
+
+                    if pose_t:
+                        return print('test')
+
                 except:
                     pass
 

@@ -16,11 +16,13 @@ FRAME_Y = int(720 / 3)
 FRAME_AREA = FRAME_X * FRAME_Y
 
 # ffmpegで多くの情報を処理するため
-FRAME_SIZE =FRAME_AREA*3
+FRAME_SIZE = FRAME_AREA * 3
 
 # CMD_FFMPEG =f'ffmpeg -hwaccel auto -hwaccel_device opencl -i pipe:0 -pix_fmt bgr24 -s {FRAME_X}x{FRAME_Y} -f rawvideo pipe:1'
 
 
+FRAME_POSE_X = 640
+FRAME_POSE_Y = 480
 
 FACE_DETECT_XML_FILE = '/Users/matsudomasato/PycharmProjects/studydrone/drone_app/model/haarcascade_frontalface_default.xml'
 EYE_DETECT_XML_FILE = '/Users/matsudomasato/PycharmProjects/studydrone/drone_app/model/haarcascade_eye.xml'
@@ -69,8 +71,6 @@ class Tello():
         # カメラコマンド
         self.send_command('streamon')
 
-
-
         # self.proc =subprocess.Popen(CMD_FFMPEG.split(' '),
         #                             stdin=subprocess.PIPE,
         #                             stdout=subprocess.PIPE
@@ -88,7 +88,6 @@ class Tello():
         # スレッドスタートさせる
         # self._receive_video2_thread.start()
 
-
         # self.send_command('takeoff')
 
         # ビデオに送る回線コマンド
@@ -98,10 +97,12 @@ class Tello():
         self.face_cascade = cv2.CascadeClassifier(FACE_DETECT_XML_FILE)
         self.eye_cascade = cv2.CascadeClassifier(EYE_DETECT_XML_FILE)
 
-        self.video()
+        # self.video()
 
-        self.mp_drawing =mp_drawing
-        self.mp_pose =mp_pose
+        self.mp_drawing = mp_drawing
+        self.mp_pose = mp_pose
+
+        self.pose()
 
     def send_command(self, command):
         # データ送信
@@ -118,40 +119,16 @@ class Tello():
 
     def video(self):
 
-        with self.mp_pose.Pose(min_detection_confidence=0.5,min_tracking_confidence=0.5) as pose:
+        if self.cap is None:
+            self.cap = cv2.VideoCapture(self.video_addr)
 
-            if self.cap is None:
-                self.cap = cv2.VideoCapture(self.video_addr)
+        elif not self.cap.isOpend():
+            self.cap.open(self.video_addr)
 
-            elif not self.cap.isOpend():
-                self.cap.open(self.video_addr)
+        while self.cap.isOpend():
+            ret, frame = self.cap.read()
 
-            while self.cap.isOpend():
-                ret, frame = self.cap.read()
-
-                frame = cv2.resize(frame, dsize=(640, 480))
-
-                image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                image.flags.writeable = False
-
-                results = pose.process(image)
-
-                image.flags.writeable = True
-                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-                self.mp_drawing.draw_landmarks(image,
-                                          results.pose_landmarks,
-                                          self.mp_pose.POSE_CONNECTIONS,
-                                          self.mp_drawing.DrawingSpec(color=(245, 117, 66),
-                                                                 thickness=2,
-                                                                 circle_radius=10,
-                                                                 ),
-                                          self.mp_drawing.DrawingSpec(color=(245, 117, 66),
-                                                                 thickness=2,
-                                                                 circle_radius=10,
-                                                                 ),
-                                          )
-
+            frame = cv2.resize(frame, dsize=(640, 480))
 
             # frame,p_landmarks, p_connections=detector.findPose(frame,False)
             # mp.solutions.drawing_utils.draw_landmarks(frame, p_landmarks, p_connections)
@@ -174,70 +151,189 @@ class Tello():
             # #
             # # # ここまで＝＝＝＝＝＝＝＝＝＝＝＝＝顔検出
 
-                cv2.imshow('frame', image)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+            cv2.imshow('frame', frame)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
         self.cap.release()
         cv2.destroyAllWindows()
 
 
-
-    # def receive_video_test(self,pipe_in,host_ip,video_port):
-    #     with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as sock_video:
-    #         # ソケットが空いた時にもう一度再利用する
-    #         sock_video.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
-    #
-    #         sock_video.bind((host_ip,video_port))
-    #         data =bytearray(2048)
-    #         while True:
-    #             try:
-    #                 # データ受け取り
-    #                 size,addr =sock_video.recvfrom_into(data)
-    #                 # print(data)
-    #
-    #             except socket.error as ex:
-    #                 print(ex)
-    #                 break
-    #
-    #             try:
-    #                 pipe_in.write(data[:size])
-    #                 # 実際にはまだ出力されていないのを出力させる
-    #                 pipe_in.flush()
-    #             except Exception as ex:
-    #                 print(ex)
-    #                 break
-    #
-    # def video_binary_generator(self):
-    #     while True:
-    #         try:
-    #             frame =self.proc_stdout.read(FRAME_SIZE)
-    #
-    #         except Exception as ex:
-    #             print(ex)
-    #
-    #         if not frame:
-    #             continue
-    #
-    #         frame =np.fromstring(frame,np.uint8).reshape(FRAME_X,FRAME_Y,3)
-    #         yield frame
-    #
-    #     for neko in frame:
-    #         _,jpeg =cv2.imencode('.jpg',neko)
-    #         cv2.imshow(jpeg)
-
-
-
-
+# def receive_video_test(self,pipe_in,host_ip,video_port):
+#     with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as sock_video:
+#         # ソケットが空いた時にもう一度再利用する
+#         sock_video.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+#
+#         sock_video.bind((host_ip,video_port))
+#         data =bytearray(2048)
+#         while True:
+#             try:
+#                 # データ受け取り
+#                 size,addr =sock_video.recvfrom_into(data)
+#                 # print(data)
+#
+#             except socket.error as ex:
+#                 print(ex)
+#                 break
+#
+#             try:
+#                 pipe_in.write(data[:size])
+#                 # 実際にはまだ出力されていないのを出力させる
+#                 pipe_in.flush()
+#             except Exception as ex:
+#                 print(ex)
+#                 break
+#
+# def video_binary_generator(self):
+#     while True:
+#         try:
+#             frame =self.proc_stdout.read(FRAME_SIZE)
+#
+#         except Exception as ex:
+#             print(ex)
+#
+#         if not frame:
+#             continue
+#
+#         frame =np.fromstring(frame,np.uint8).reshape(FRAME_X,FRAME_Y,3)
+#         yield frame
+#
+#     for neko in frame:
+#         _,jpeg =cv2.imencode('.jpg',neko)
+#         cv2.imshow(jpeg)
 
 
     def takeoff(self):
         return self.send_command('takeoff')
 
+
     def land(self):
         return self.send_command('land')
 
+
     def flip_back(self):
         return self.send_command('flip b')
+
+
+    def pose(self):
+        def calculate_angle(first, middle, end):
+            first = np.array(first)
+            middle = np.array(middle)
+            end = np.array(end)
+
+            radians = np.arctan2(end[1] - middle[1], end[0] - middle[0]) - np.arctan2(first[1] - middle[1],
+                                                                                      first[0] - middle[0])
+            angle = np.abs(radians * 180 / np.pi)
+            if angle > 180.0:
+                angle = 360 - angle
+            return angle
+
+        def draw_joint_text(image, angle, middle_joint):
+            cv2.putText(image, str(angle),
+                        tuple(np.multiply(middle_joint, [FRAME_X, FRAME_Y]).astype(int)),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA
+                        )
+
+        def pose_T(left_arm_angle, right_arm_angle, left_body_angle, right_body_angle):
+            output = False
+            if left_arm_angle >= 150 and left_body_angle >= 70 and right_arm_angle >= 150 and right_body_angle:
+                return True
+            return False
+
+        output = None
+        cap = cv2.VideoCapture(0)
+        with self.mp_pose.Pose(min_detection_confidence=0.5,
+                               min_tracking_confidence=0.5
+                               ) as pose:
+            while cap.isOpened():
+                ret, frame = cap.read()
+
+                frame = cv2.resize(frame, dsize=(FRAME_POSE_X, FRAME_POSE_Y))
+
+                image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                image.flags.writeable = False
+
+                results = pose.process(image)
+
+                image.flags.writeable = True
+                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+                try:
+                    landmarks = results.pose_landmarks.landmark
+
+                    # 左
+                    left_sholder = [landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+                                    landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER.value].y
+                                    ]
+
+                    left_elbow = [landmarks[self.mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
+                                  landmarks[self.mp_pose.PoseLandmark.LEFT_ELBOW.value].y
+                                  ]
+
+                    left_wrist = [landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].x,
+                                  landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST.value].y
+                                  ]
+
+                    left_hip = [landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value].x,
+                                landmarks[self.mp_pose.PoseLandmark.LEFT_HIP.value].y
+                                ]
+
+                    # 右
+                    right_shoulder = [landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
+                                      landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
+
+                    right_elbow = [landmarks[self.mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
+                                   landmarks[self.mp_pose.PoseLandmark.RIGHT_ELBOW.value].y]
+
+                    right_wrist = [landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].x,
+                                   landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST.value].y
+                                   ]
+
+                    right_hip = [landmarks[self.mp_pose.PoseLandmark.RIGHT_HIP.value].x,
+                                 landmarks[self.mp_pose.PoseLandmark.RIGHT_HIP.value].y
+                                 ]
+
+                    left_arm_angle = calculate_angle(left_sholder, left_elbow, left_wrist)
+                    right_arm_angle = calculate_angle(right_shoulder, right_elbow, right_wrist)
+
+                    left_body_angle = calculate_angle(left_hip, left_sholder, left_elbow)
+                    right_body_angle = calculate_angle(right_hip, right_shoulder, right_elbow)
+
+                    cv2.rectangle(image, (0, 0), (255, 73), (245, 117, 16), -1)
+
+                    draw_joint_text(image, left_arm_angle, left_elbow)
+                    draw_joint_text(image, right_arm_angle, right_elbow)
+                    draw_joint_text(image, left_body_angle, left_sholder)
+                    draw_joint_text(image, right_body_angle, right_shoulder)
+
+                    pose_t = pose_T(left_arm_angle, right_arm_angle, left_body_angle, right_body_angle)
+
+                    if pose_t:
+                        self.send_command('takeoff')
+
+
+                except:
+                    pass
+
+                self.mp_drawing.draw_landmarks(image,
+                                               results.pose_landmarks,
+                                               self.mp_pose.POSE_CONNECTIONS,
+                                               self.mp_drawing.DrawingSpec(color=(245, 117, 66),
+                                                                           thickness=2,
+                                                                           circle_radius=10,
+                                                                           ),
+                                               self.mp_drawing.DrawingSpec(color=(245, 117, 66),
+                                                                           thickness=2,
+                                                                           circle_radius=10,
+                                                                           ),
+                                               )
+
+                cv2.imshow('test', image)
+                if cv2.waitKey(10) and 0xFF == ord('q'):
+                    break
+
+        cap.release()
+        cap.destroyAllWindows()
 
 
 if __name__ == '__main__':
