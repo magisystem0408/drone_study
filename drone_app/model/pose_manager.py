@@ -15,8 +15,6 @@ class MediaPose():
         self.mp_drawing = mp_drawing
         self.cap = cap
 
-
-
         self.start()
 
     def start(self):
@@ -129,8 +127,8 @@ class MediaPose():
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA
                                 )
 
-                    if pose_t:
-                        return print('test')
+                    # if pose_t:
+                    #     return print('test')
 
                 except:
                     pass
