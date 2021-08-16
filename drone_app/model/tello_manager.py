@@ -1,19 +1,22 @@
 import socket
 import threading
-import time
 import cv2
 
 import os
-import subprocess
 import numpy as np
 
 import mediapipe as mp
+
+from pose_estimation_class import PoseDetector as pec
 
 # ドローンのデフォルトでは960*720で送られてくる
 
 FRAME_X = int(960 / 3)
 FRAME_Y = int(720 / 3)
 FRAME_AREA = FRAME_X * FRAME_Y
+
+FRAME_CENTER_X = FRAME_X / 2
+FRAME_CENTER_Y = FRAME_Y / 2
 
 # ffmpegで多くの情報を処理するため
 FRAME_SIZE = FRAME_AREA * 3
@@ -26,6 +29,14 @@ FRAME_POSE_Y = 480
 
 FACE_DETECT_XML_FILE = '/Users/matsudomasato/PycharmProjects/studydrone/drone_app/model/haarcascade_frontalface_default.xml'
 EYE_DETECT_XML_FILE = '/Users/matsudomasato/PycharmProjects/studydrone/drone_app/model/haarcascade_eye.xml'
+
+
+class ErrorNoFaceDetectXMLFile(Exception):
+    """error no face detect xml file"""
+
+
+class ErrorNoEyeDetectXMLFile(Exception):
+    """error no eye detect xml file"""
 
 
 class Tello():
@@ -94,7 +105,14 @@ class Tello():
         self.cap = None
         self.video_addr = 'udp://@' + self.host_ip + ':' + str(self.video_port)
 
+        if not os.path.exists(FACE_DETECT_XML_FILE):
+            raise ErrorNoFaceDetectXMLFile(f'No{FACE_DETECT_XML_FILE}')
+
         self.face_cascade = cv2.CascadeClassifier(FACE_DETECT_XML_FILE)
+
+        if not os.path.exists(EYE_DETECT_XML_FILE):
+            raise ErrorNoEyeDetectXMLFile(f'No{EYE_DETECT_XML_FILE}')
+
         self.eye_cascade = cv2.CascadeClassifier(EYE_DETECT_XML_FILE)
 
         # self.video()
@@ -128,7 +146,7 @@ class Tello():
         while self.cap.isOpend():
             ret, frame = self.cap.read()
 
-            frame = cv2.resize(frame, dsize=(640, 480))
+            # frame = cv2.resize(frame, dsize=(640, 480))
 
             # frame,p_landmarks, p_connections=detector.findPose(frame,False)
             # mp.solutions.drawing_utils.draw_landmarks(frame, p_landmarks, p_connections)
@@ -136,19 +154,35 @@ class Tello():
 
             # ここから＝＝＝＝＝＝＝＝＝＝＝＝＝顔検出
 
-            # grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            # faces = face.detectMultiScale(grey, 1.3, 5)
-            # print(len(faces))
-            # # # facesの画像の座標の高さを取得できる
-            # # # wとhは幅と高さ
-            # # for (x, y, w, h) in faces:
-            # #     cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-            # #     eye_gray = grey[y:y + h, x:x + w]
-            # #     eye_color = frame[y:y + h, x:x + w]
-            # #     eyes = eye.detectMultiScale(eye_gray)
-            # #     for (ex, ey, ew, eh) in eyes:
-            # #         cv2.rectangle(eye_color, (ex, ey), (ex + ew, ey + eh), (0, 255, 0), 2)
-            # #
+            grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = self.face_cascade.detectMultiScale(grey, 1.3, 5)
+            print(len(faces))
+            # # facesの画像の座標の高さを取得できる
+            # # wとhは幅と高さ
+            for (x, y, w, h) in faces:
+                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+                # ここから追従する
+                # 真ん中の顔座標を取得
+                face_center_x = x + (w / 2)
+                face_center_y = y + (w / 2)
+
+                # 差分
+                df_x = FRAME_CENTER_X - face_center_x
+                df_y = FRAME_CENTER_Y - face_center_y
+
+                # 顔の面積
+                face_area = w * h
+
+                # 顔の面積の割合
+                percent_face = face_area / FRAME_AREA
+
+                eye_gray = grey[y:y + h, x:x + w]
+                eye_color = frame[y:y + h, x:x + w]
+                eyes = self.eye_cascade.detectMultiScale(eye_gray)
+                for (ex, ey, ew, eh) in eyes:
+                    cv2.rectangle(eye_color, (ex, ey), (ex + ew, ey + eh), (0, 255, 0), 2)
+
             # # # ここまで＝＝＝＝＝＝＝＝＝＝＝＝＝顔検出
 
             cv2.imshow('frame', frame)
@@ -158,75 +192,59 @@ class Tello():
         self.cap.release()
         cv2.destroyAllWindows()
 
-
-# def receive_video_test(self,pipe_in,host_ip,video_port):
-#     with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as sock_video:
-#         # ソケットが空いた時にもう一度再利用する
-#         sock_video.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
-#
-#         sock_video.bind((host_ip,video_port))
-#         data =bytearray(2048)
-#         while True:
-#             try:
-#                 # データ受け取り
-#                 size,addr =sock_video.recvfrom_into(data)
-#                 # print(data)
-#
-#             except socket.error as ex:
-#                 print(ex)
-#                 break
-#
-#             try:
-#                 pipe_in.write(data[:size])
-#                 # 実際にはまだ出力されていないのを出力させる
-#                 pipe_in.flush()
-#             except Exception as ex:
-#                 print(ex)
-#                 break
-#
-# def video_binary_generator(self):
-#     while True:
-#         try:
-#             frame =self.proc_stdout.read(FRAME_SIZE)
-#
-#         except Exception as ex:
-#             print(ex)
-#
-#         if not frame:
-#             continue
-#
-#         frame =np.fromstring(frame,np.uint8).reshape(FRAME_X,FRAME_Y,3)
-#         yield frame
-#
-#     for neko in frame:
-#         _,jpeg =cv2.imencode('.jpg',neko)
-#         cv2.imshow(jpeg)
-
+    # def receive_video_test(self,pipe_in,host_ip,video_port):
+    #     with socket.socket(socket.AF_INET,socket.SOCK_DGRAM) as sock_video:
+    #         # ソケットが空いた時にもう一度再利用する
+    #         sock_video.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
+    #
+    #         sock_video.bind((host_ip,video_port))
+    #         data =bytearray(2048)
+    #         while True:
+    #             try:
+    #                 # データ受け取り
+    #                 size,addr =sock_video.recvfrom_into(data)
+    #                 # print(data)
+    #
+    #             except socket.error as ex:
+    #                 print(ex)
+    #                 break
+    #
+    #             try:
+    #                 pipe_in.write(data[:size])
+    #                 # 実際にはまだ出力されていないのを出力させる
+    #                 pipe_in.flush()
+    #             except Exception as ex:
+    #                 print(ex)
+    #                 break
+    #
+    # def video_binary_generator(self):
+    #     while True:
+    #         try:
+    #             frame =self.proc_stdout.read(FRAME_SIZE)
+    #
+    #         except Exception as ex:
+    #             print(ex)
+    #
+    #         if not frame:
+    #             continue
+    #
+    #         frame =np.fromstring(frame,np.uint8).reshape(FRAME_X,FRAME_Y,3)
+    #         yield frame
+    #
+    #     for neko in frame:
+    #         _,jpeg =cv2.imencode('.jpg',neko)
+    #         cv2.imshow(jpeg)
 
     def takeoff(self):
         return self.send_command('takeoff')
 
-
     def land(self):
         return self.send_command('land')
-
 
     def flip_back(self):
         return self.send_command('flip b')
 
-
     def pose(self):
-        def calculate_angle(first, middle, end):
-            first = np.array(first)
-            middle = np.array(middle)
-            end = np.array(end)
-
-            radians = np.arctan2(end[1] - middle[1], end[0] - middle[0]) - np.arctan2(first[1] - middle[1],
-                                                                                      first[0] - middle[0])
-            angle = np.abs(radians * 180 / np.pi)
-            if angle > 180.0:
-                angle = 360 - angle
-            return angle
 
         def draw_joint_text(image, angle, middle_joint):
             cv2.putText(image, str(angle),
@@ -234,19 +252,7 @@ class Tello():
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2, cv2.LINE_AA
                         )
 
-        def pose_T(left_arm_angle, right_arm_angle, left_body_angle, right_body_angle):
-            output = False
-            if left_arm_angle >= 150 and left_body_angle >= 70 and right_arm_angle >= 150 and right_body_angle:
-                return True
-            return False
-
-        def pose_A(left_body_angle, right_body_angle):
-            output = False
-            if left_body_angle >= 90 and right_body_angle >= 90:
-                return True
-            return False
-
-        state =False
+        state = False
         cap = cv2.VideoCapture(0)
 
         with self.mp_pose.Pose(min_detection_confidence=0.5,
@@ -300,11 +306,10 @@ class Tello():
                                  landmarks[self.mp_pose.PoseLandmark.RIGHT_HIP.value].y
                                  ]
 
-                    left_arm_angle = calculate_angle(left_sholder, left_elbow, left_wrist)
-                    right_arm_angle = calculate_angle(right_shoulder, right_elbow, right_wrist)
-
-                    left_body_angle = calculate_angle(left_hip, left_sholder, left_elbow)
-                    right_body_angle = calculate_angle(right_hip, right_shoulder, right_elbow)
+                    left_arm_angle = pec.calculate_angle(left_sholder, left_elbow, left_wrist)
+                    right_arm_angle = pec.calculate_angle(right_shoulder, right_elbow, right_wrist)
+                    left_body_angle = pec.calculate_angle(left_hip, left_sholder, left_elbow)
+                    right_body_angle = pec.calculate_angle(right_hip, right_shoulder, right_elbow)
 
                     # cv2.rectangle(image, (0, 0), (255, 73), (245, 117, 16), -1)
 
@@ -313,17 +318,22 @@ class Tello():
                     draw_joint_text(image, left_body_angle, left_sholder)
                     draw_joint_text(image, right_body_angle, right_shoulder)
 
-                    pose_t = pose_T(left_arm_angle, right_arm_angle, left_body_angle, right_body_angle)
-                    pose_a = pose_A(left_body_angle, right_body_angle)
+                    # Detect Pose
+                    pose_detect = pec(left_arm_angle, right_arm_angle, left_body_angle, right_body_angle)
+                    detect_a = pose_detect.pose_A()
+                    detect_l = pose_detect.pose_L()
+                    detect_t = pose_detect.pose_T()
 
-                    if pose_t and state is False:
-                        state =True
+                    if detect_t and state is False:
+                        state = True
                         self.send_command('takeoff')
 
-                    if pose_a and state is not False:
-                        self.send_command('land')
-                        state =False
-
+                    if state is not False:
+                        if detect_l:
+                            return self.send_command('flip b')
+                        if detect_a:
+                            self.send_command('land')
+                            state = False
                 except:
                     pass
 
