@@ -27,6 +27,9 @@ FRAME_SIZE = FRAME_AREA * 3
 FRAME_POSE_X = 640
 FRAME_POSE_Y = 480
 
+# gradent
+DEFAULT_DISTANCE = 0.30
+
 FACE_DETECT_XML_FILE = '/Users/matsudomasato/PycharmProjects/studydrone/drone_app/model/haarcascade_frontalface_default.xml'
 EYE_DETECT_XML_FILE = '/Users/matsudomasato/PycharmProjects/studydrone/drone_app/model/haarcascade_eye.xml'
 
@@ -42,8 +45,10 @@ class ErrorNoEyeDetectXMLFile(Exception):
 class Tello():
     def __init__(self, host_ip: object = '192.168.10.2', host_port: object = 8889
                  , drone_ip: object = '192.168.10.1', drone_port: object = 8889,
+                 is_imperial: object = False,
                  mp_drawing: object = mp.solutions.drawing_utils,
                  mp_pose: object = mp.solutions.pose,
+
                  ):
 
         # PC(ローカル側)の情報
@@ -56,6 +61,9 @@ class Tello():
         # ドローンの情報
         self.drone_ip = drone_ip
         self.drone_port = drone_port
+
+        self.is_imperial = is_imperial
+
         # socket
         self.drone_address = (self.drone_ip, self.drone_port)
 
@@ -244,6 +252,15 @@ class Tello():
     def flip_back(self):
         return self.send_command('flip b')
 
+    def move(self, direction, distance):
+        distance = float(distance)
+        # 単位変換
+        if self.is_imperial:
+            distance = int(round(distance * 30.48))
+        else:
+            distance = int(round(distance * 100))
+        self.send_command(f'{direction}{distance}')
+
     def pose(self):
 
         def draw_joint_text(image, angle, middle_joint):
@@ -253,7 +270,7 @@ class Tello():
                         )
 
         state = False
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(1)
 
         with self.mp_pose.Pose(min_detection_confidence=0.5,
                                min_tracking_confidence=0.5
@@ -321,7 +338,15 @@ class Tello():
                     # Detect Pose
                     pose_detect = pec(left_arm_angle, right_arm_angle, left_body_angle, right_body_angle)
                     detect_a = pose_detect.pose_A()
-                    detect_l = pose_detect.pose_L()
+
+                    # detect_l = pose_detect.pose_L()
+
+                    # 左に移動
+                    detect_right_l = pose_detect.pose_right_L()
+
+                    # 右に移動
+                    detect_left_l = pose_detect.pose_left_L()
+
                     detect_t = pose_detect.pose_T()
 
                     if detect_t and state is False:
@@ -329,8 +354,14 @@ class Tello():
                         self.send_command('takeoff')
 
                     if state is not False:
-                        if detect_l:
-                            return self.send_command('flip b')
+                        if detect_right_l:
+                            # self.move('left', DEFAULT_DISTANCE)
+                            self.send_command('flip f')
+
+                        if detect_left_l:
+                            # self.move('right', DEFAULT_DISTANCE)
+                            self.send_command('flip b')
+
                         if detect_a:
                             self.send_command('land')
                             state = False

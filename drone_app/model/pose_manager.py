@@ -18,21 +18,12 @@ class MediaPose():
         self.mp_drawing = mp_drawing
         self.cap = cap
 
+
         self.start()
 
+
+
     def start(self):
-
-        def calculate_angle(first, middle, end):
-            first = np.array(first)
-            middle = np.array(middle)
-            end = np.array(end)
-
-            radians = np.arctan2(end[1] - middle[1], end[0] - middle[0]) - np.arctan2(first[1] - middle[1],
-                                                                                      first[0] - middle[0])
-            angle = np.abs(radians * 180 / np.pi)
-            if angle > 180.0:
-                angle = 360 - angle
-            return angle
 
         def draw_text(image, angle, middle_joint):
             cv2.putText(image, str(angle),
