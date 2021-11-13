@@ -45,7 +45,7 @@ class ErrorNoEyeDetectXMLFile(Exception):
 class Tello():
     def __init__(self, host_ip: object = '192.168.10.2', host_port: object = 8889
                  , drone_ip: object = '192.168.10.1', drone_port: object = 8889,
-                 is_imperial: object = False,
+                  is_imperial: object = False,
                  mp_drawing: object = mp.solutions.drawing_utils,
                  mp_pose: object = mp.solutions.pose,
 

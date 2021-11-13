@@ -11,7 +11,7 @@ from pose_estimation_class import PoseDetector as pec
 class MediaPose():
     def __init__(self, mp_drawing=mp.solutions.drawing_utils,
                  mp_pose=mp.solutions.pose,
-                 cap=cv2.VideoCapture(2)
+                 cap=cv2.VideoCapture(1)
                  ):
 
         self.mp_pose = mp_pose
