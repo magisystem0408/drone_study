@@ -54,15 +54,6 @@ def get_et(index, hand, results):
 # 一緒に座標が一致された時にTrueになる
 # 2点間の距離が測定される
 
-def detect_t():
-    output=None
-    # if
-
-
-
-
-joint_list = [[8, 7, 6], [12, 11, 10]]
-
 
 def draw_finger_angles(image, results, joint_list):
     for hand in results.multi_hand_landmarks:
