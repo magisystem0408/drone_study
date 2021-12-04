@@ -2,6 +2,7 @@ import threading
 import cv2
 import time
 import math
+import glob
 import numpy as np
 import osascript
 import pygame
@@ -15,8 +16,12 @@ class HandControl(object):
         self.main_mode = True
         self.light_mode = False
         self.music_mode = False
+
+        self.music_play_mode = True
+
         self.volumeFlag = False
         self.crashSize = 300
+        self.musicList = glob.glob("sounds/musics/*.mp3")
 
         self._command_semaphore = threading.Semaphore(1)
         self._command_thread = None
@@ -53,11 +58,19 @@ class HandControl(object):
                 pygame.mixer.music.play(1)
                 time.sleep(2)
                 self._command_semaphore.release()
+
+            if command == "music_play":
+                pygame.mixer.music.load(self.musicList[1])
+                pygame.mixer.music.play(1)
+                self._command_semaphore.release()
+
+            if command == "music_stop":
+                pygame.mixer.music.stop()
+                self._command_semaphore.release()
         else:
             print("スキップします。")
 
     def gesture(self):
-        # main_mode =True
         pTime = 0
         while True:
             success, img = self.cap.read()
@@ -175,7 +188,7 @@ class HandControl(object):
                     self.main_mode = False
                     self.music_mode = True
 
-                    # ナンバーワン
+                # ナンバーワン
                 if firstGeture and self.main_mode == True:
                     self.send_command("light_mode")
                     self.main_mode = False
@@ -198,6 +211,19 @@ class HandControl(object):
                     cv2.putText(img, "Music", (40, 120), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 3)
                     cv2.putText(img, "NomalMode", (40, 170), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 3)
 
+                    # 再生する
+                    if firstGeture and self.music_play_mode:
+                        self.music_play_mode = False
+                        self.send_command("music_play")
+
+                    # 停止する
+                    if not self.music_play_mode:
+                        print("値がfalseになりました。")
+                    #     self.music_play_mode = True
+                    #     self.send_command("music_stop")
+
+
+                    # ボリューム調整
                     if threeGesture:
                         self.volumeFlag = True
 
