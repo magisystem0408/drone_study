@@ -6,22 +6,26 @@ import glob
 import numpy as np
 import osascript
 import pygame
+from yeelight import Bulb
+from yeelight import discover_bulbs
+
 import models.handDetector as htm
 
 
 class HandControl(object):
-    def __init__(self):
+    def __init__(self, blob_ip: str = "192.168.1.4"):
         self.cap = cv2.VideoCapture(1)
         self.detector = htm.handDetector()
         self.main_mode = True
         self.light_mode = False
         self.music_mode = False
-
         self.music_play_mode = True
-
         self.volumeFlag = False
+        self.islighting = False
+
         self.crashSize = 300
         self.musicList = glob.glob("sounds/musics/*.mp3")
+        self.blob = Bulb(blob_ip)
 
         self._command_semaphore = threading.Semaphore(1)
         self._command_thread = None
@@ -66,6 +70,14 @@ class HandControl(object):
 
             if command == "music_stop":
                 pygame.mixer.music.stop()
+                self._command_semaphore.release()
+            if command == "turn_on":
+                self.blob.turn_on()
+
+                self._command_semaphore.release()
+
+            if command == "turn_off":
+                self.blob.turn_off()
                 self._command_semaphore.release()
         else:
             print("スキップします。")
@@ -179,7 +191,6 @@ class HandControl(object):
                 firstGeture = index_angle >= 170 and thumb_ring_length <= 20 and thumb_middle_length <= 55 and thumb_pinky_length <= 50
                 secondGesture = thumb_pinky_length <= 40 and thumb_ring_length <= 20 and index_angle >= 170 and middle_angle >= 170
                 threeGesture = index_angle >= 170 and middle_angle >= 170 and ring_angle >= 170 and thumb_pinky_length <= 40
-
                 yeyGeture = index_angle >= 170 and pinky_angle >= 170 and thumb_ring_length <= 40 and thumb_middle_length <= 40
 
                 # チョキ(ミュージックモード)
@@ -198,15 +209,25 @@ class HandControl(object):
                 if self.main_mode:
                     cv2.putText(img, "MainMode", (40, 120), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255), 3)
 
+                # ライトモード
                 if self.light_mode:
                     cv2.putText(img, "Light", (40, 120), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 3)
                     cv2.putText(img, "NomalMode", (40, 170), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 3)
+
+                    if secondGesture and (not self.islighting):
+                        self.islighting = True
+                        self.send_command("turn_on")
+
+                    if (self.islighting) and threeGesture:
+                        self.islighting = False
+                        self.send_command("turn_off")
 
                     # モードを抜ける
                     if yeyGeture:
                         self.light_mode = False
                         self.main_mode = True
 
+                # ミュージックモード
                 if self.music_mode:
                     cv2.putText(img, "Music", (40, 120), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 3)
                     cv2.putText(img, "NomalMode", (40, 170), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 3)
@@ -215,13 +236,13 @@ class HandControl(object):
                     if firstGeture and self.music_play_mode:
                         self.music_play_mode = False
                         self.send_command("music_play")
+                        cv2.putText(img, "Play", (40, 220), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 255, 0), 3)
 
                     # 停止する
                     if not self.music_play_mode:
                         print("値がfalseになりました。")
                     #     self.music_play_mode = True
                     #     self.send_command("music_stop")
-
 
                     # ボリューム調整
                     if threeGesture:
@@ -234,7 +255,12 @@ class HandControl(object):
                         cv2.rectangle(img, (width - self.crashSize, 0), (width, self.crashSize), color=(255, 255, 255),
                                       thickness=4)
                         vol = "set volume output volume " + str(np.interp(thumb_index_length, [20, 300], [0, 100]))
-                        osascript.osascript(vol)
+                        # osascript.osascript(vol)
+
+                        # self.blob.set_brightness(np.interp(thumb_index_length, [20, 300], [0, 100]))
+
+
+
                         if right_index_finger_tip_x >= width - self.crashSize and right_index_finger_tip_y <= self.crashSize:
                             self.volumeFlag = False
 
@@ -256,4 +282,9 @@ if __name__ == '__main__':
     pygame.mixer.init(frequency=44100)
     pygame.mixer.music.load("sounds/announce/systemStart.wav")
     pygame.mixer.music.play(1)
-    controller = HandControl()
+
+    bulb_info = discover_bulbs()
+    bulb_ip = bulb_info[0]["ip"]
+    print("yeelightのIPアドレス" + bulb_ip)
+
+    controller = HandControl(blob_ip=str(bulb_ip))

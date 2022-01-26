@@ -30,14 +30,20 @@ while True:
         cv2.circle(img, (x1, y1), 15, (255, 0, 255), cv2.FILLED)
         cv2.circle(img, (x2, y2), 15, (255, 0, 255,), cv2.FILLED)
         cv2.line(img, (x1, y1), (x2, y2), (255, 0, 255), 3)
-        cv2.circle(img, (cx, cy), 15, (255, 0, 255), cv2.FILLED)
+        # cv2.circle(img, (cx, cy), 15, (255, 0, 255), cv2.FILLED)
 
+
+        # 親指と人差し指の距離の長さを取得
         length = math.hypot(x2 - x1, y2 - y1)
-        print(length)
+
+        # 0~100のスケールに正規化する
+        norm_length=np.interp(length, [20, 300], [0, 100])
+
+
 
         # ここにコマンド処理を書いていく
-        if length < 50:
-            cv2.circle(img, (cx, cy), 15, (0, 255, 0), cv2.FILLED)
+        # if length < 50:
+        #     cv2.circle(img, (cx, cy), 15, (0, 255, 0), cv2.FILLED)
 
 
 
