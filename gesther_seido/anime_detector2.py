@@ -98,8 +98,7 @@ while True:
 
     # 結果を出力
     cv2.imshow("Frame", frame)
-    key = cv2.waitKey(30)
-    if key == 27:
+    if (key := cv2.waitKey(30)) == 27:
         break
 
 cap.release()

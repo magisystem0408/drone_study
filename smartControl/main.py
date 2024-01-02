@@ -49,8 +49,7 @@ class HandControl(object):
         self._command_thread.start()
 
     def _send_command(self, command, blocking=True):
-        is_acquire = self._command_semaphore.acquire(blocking=blocking)
-        if is_acquire:
+        if is_acquire := self._command_semaphore.acquire(blocking=blocking):
             if command == "music_mode":
                 pygame.mixer.music.load("sounds/announce/start_musicmode.wav")
                 pygame.mixer.music.play(1)
